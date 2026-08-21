@@ -4,6 +4,9 @@ OpenCaption-4B-VL-SFT is an advanced multimodal image captioning terminal interf
 
 The application is deployed as a retro terminal-styled single-page application (SPA) backed by a FastAPI engine (`gradio.Server`). It features streaming text generation via `TextIteratorStreamer`, built-in CLI command handling, inline image previews, and zero-GPU resource allocation hooks.
 
+<img width="1919" height="830" alt="Screenshot 2026-08-21 230426" src="https://github.com/user-attachments/assets/4a392083-0de6-472e-bfae-8568ec691840" />
+<img width="1919" height="840" alt="Screenshot 2026-08-21 230445" src="https://github.com/user-attachments/assets/69c865da-2c7d-437b-adda-6414341ec01f" />
+
 ### **Key Features**
 
 * **Dense Structured Captioning:** Generates rich captions containing:
@@ -114,15 +117,12 @@ Once the server initializes, open your browser to the local address output in yo
 * Click **[ Upload ]** or type `upload` in the CLI to select a local image.
 * Click any example file path listed under `EXAMPLES_DIR:`.
 
-
 2. **Generate Caption:**
 * Click **[ Generate ]** or type `generate` and press Enter.
 * The model will stream the fine-grained visual caption directly into the terminal window.
 
-
 3. **Copy Output:**
 * Click **[ Copy ]** or type `copy` to copy the generated markdown to your clipboard.
-
 
 4. **Clear Session:**
 * Click **[ Clear ]** or type `clear` to reset the terminal buffer and start a new session.
