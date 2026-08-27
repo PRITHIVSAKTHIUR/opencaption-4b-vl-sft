@@ -1,8 +1,11 @@
 # **[OpenCaption-4B-VL-SFT](https://huggingface.co/spaces/prithivMLmods/opencaption-4b-vl-sft)**
 
-OpenCaption-4B-VL-SFT is an advanced vision-language captioning and dense scene-understanding terminal application powered by `prithivMLmods/OpenCaption-4B-VL-SFT-v1.0`. Built upon the Qwen-VL architecture, the model delivers fine-grained, structured visual descriptions covering lighting conditions, spatial compositions, subjects, backgrounds, materials, and thematic summaries.
+OpenCaption-4B-VL-SFT is an advanced vision-language captioning and dense scene-understanding terminal application powered by `prithivMLmods/OpenCaption-4B-VL-SFT-v1.0`. Built upon the Qwen3-VL architecture, the model delivers fine-grained, structured visual descriptions covering lighting conditions, spatial compositions, subjects, backgrounds, materials, and thematic summaries.
 
 To maintain safety standards, the application incorporates a dedicated GPU-accelerated pre-screening guard layer using `prithivMLmods/ImageShield-MMCF-0.8B` (`ncii_vision_guard.py`) to classify and block Non-Consensual Intimate Imagery (NCII) and NSFW inputs before caption generation. The interface is served as an interactive retro-styled terminal SPA built with FastAPI and `gradio.Server`.
+
+<img width="1919" height="1447" alt="x1" src="https://github.com/user-attachments/assets/63317732-ba67-46d4-83f5-b3da4b203246" />
+<img width="1919" height="902" alt="Blur_x2" src="https://github.com/user-attachments/assets/b0217df5-c16e-4e02-9bcd-64b7201436c0" />
 
 ### **Key Features**
 
