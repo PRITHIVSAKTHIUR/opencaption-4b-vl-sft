@@ -1,24 +1,16 @@
 # **[OpenCaption-4B-VL-SFT](https://huggingface.co/spaces/prithivMLmods/opencaption-4b-vl-sft)**
 
-OpenCaption-4B-VL-SFT is an advanced multimodal image captioning terminal interface powered by `prithivMLmods/OpenCaption-4B-VL-SFT-v1.0`. Built upon the `Qwen3VLForConditionalGeneration` architecture, this platform generates highly structured, fine-grained visual descriptions with theme-based sections, spatial bounding references, and concrete sensory details.
+OpenCaption-4B-VL-SFT is an advanced vision-language captioning and dense scene-understanding terminal application powered by `prithivMLmods/OpenCaption-4B-VL-SFT-v1.0`. Built upon the Qwen-VL architecture, the model delivers fine-grained, structured visual descriptions covering lighting conditions, spatial compositions, subjects, backgrounds, materials, and thematic summaries.
 
-The application is deployed as a retro terminal-styled single-page application (SPA) backed by a FastAPI engine (`gradio.Server`). It features streaming text generation via `TextIteratorStreamer`, built-in CLI command handling, inline image previews, and zero-GPU resource allocation hooks.
-
-<img width="1919" height="830" alt="Screenshot 2026-08-21 230426" src="https://github.com/user-attachments/assets/4a392083-0de6-472e-bfae-8568ec691840" />
-<img width="1919" height="840" alt="Screenshot 2026-08-21 230445" src="https://github.com/user-attachments/assets/69c865da-2c7d-437b-adda-6414341ec01f" />
+To maintain safety standards, the application incorporates a dedicated GPU-accelerated pre-screening guard layer using `prithivMLmods/ImageShield-MMCF-0.8B` (`ncii_vision_guard.py`) to classify and block Non-Consensual Intimate Imagery (NCII) and NSFW inputs before caption generation. The interface is served as an interactive retro-styled terminal SPA built with FastAPI and `gradio.Server`.
 
 ### **Key Features**
 
-* **Dense Structured Captioning:** Generates rich captions containing:
-1. Opening shot type, overall setting, and lighting conditions.
-2. Thematic sections (e.g., `**The Subject:**`, `**The Background:**`, `**Atmosphere & Lighting:**`).
-3. Spatial bullet points detailing colors, textures, materials, and spatial relationships.
-4. Closing summary synthesis.
-
-* **Token Streaming:** Employs `TextIteratorStreamer` with client-side markdown parsing (`marked.js`) to stream generated tokens in real-time with an active cursor.
-* **Retro CLI Terminal Workspace:** A full-featured terminal interface supporting both CLI commands (`upload`, `generate`, `copy`, `clear`, `help`) and interactive quick-action buttons.
-* **Aspect-Preserving Preprocessing:** Resizes and crops input images using `qwen_vl_utils.process_vision_info` for optimal token length and memory efficiency.
-* **Dynamic Example Browser:** One-click loading of preset images directly into the command line buffer via dedicated API endpoints.
+* **Dense Structured Captioning:** Automatically breaks image descriptions into standardized thematic sections—identifying shot types, background elements, foreground details, lighting, and overarching narrative summaries.
+* **Integrated Vision Safety Guard:** Utilizes `ImageShield-MMCF-0.8B` to verify image safety prior to model ingestion, preventing the generation of explicit or non-consensual content.
+* **Token Streaming Engine:** Employs `TextIteratorStreamer` within threaded execution blocks for responsive real-time generation previews.
+* **Retro Terminal Web Interface:** A lightweight, single-page command-line interface supporting keyboard commands (`upload`, `generate`, `copy`, `clear`, `help`), CRT visual effects, Markdown formatting, and one-click example loading.
+* **Optimized Inference:** Configured with BF16 precision and automatic memory cleanup routines for seamless operation across modern CUDA and ZeroGPU environments.
 
 ### **Repository Structure**
 
@@ -35,6 +27,7 @@ The application is deployed as a retro terminal-styled single-page application (
 ├── app.py
 ├── index.html
 ├── LICENSE.txt
+├── ncii_vision_guard.py
 ├── pre-requirements.txt
 ├── pyproject.toml
 ├── README.md
@@ -44,15 +37,15 @@ The application is deployed as a retro terminal-styled single-page application (
 
 ### **Installation and Requirements**
 
-To configure the OpenCaption-4B-VL-SFT workspace locally, ensure your environment meets the following specifications:
+To set up the OpenCaption-4B-VL-SFT environment locally, configure your system according to the specifications below. A modern CUDA-enabled GPU is required.
 
-* **Python Version:** Minimum Python **3.13** or above is required.
-* **PyTorch Version:** `torch==2.11.0` or above is required for best compatibility.
-* **CUDA Version:** CUDA **13.0** is recommended, matching the environment running on the live Hugging Face Space.
+* **Python Version:** Python **3.10** or higher is required; Python **3.12** is recommended.
+* **PyTorch Version:** `torch==2.11.0` or above is recommended for optimal compatibility with vision-language transformer kernels.
+* **CUDA Version:** **CUDA 12.8+ / 13.0** is recommended (`--extra-index-url [https://download.pytorch.org/whl/cu130](https://download.pytorch.org/whl/cu130)`).
 
 #### **Running with `uv` (Recommended)**
 
-`uv` is an ultra-fast Python package and project manager written in Rust. It ensures rapid virtual environment synchronization and deterministic dependency management based on `uv.lock`.
+`uv` is an ultra-fast Python package and project manager written in Rust. It ensures rapid virtual environment setup and deterministic dependency management.
 
 **Step 1 — Install `uv`**
 
@@ -72,7 +65,7 @@ cd opencaption-4b-vl-sft
 uv sync
 ```
 
-**Step 4 — Run the script**
+**Step 4 — Run the application**
 
 ```bash
 uv run app.py
@@ -80,15 +73,14 @@ uv run app.py
 
 #### **Standard PIP Implementation**
 
-**1. Update Package Manager**
-Upgrade your local package manager:
+**1. Upgrade Package Manager**
 
 ```bash
-pip install pip>=26.1.2
+pip install "pip>=26.1.2"
+
 ```
 
 **2. Install Core Dependencies**
-Install the primary deep learning stack, transformers, and vision-language utilities listed in `requirements.txt`:
 
 ```bash
 pip install -r requirements.txt
@@ -98,34 +90,34 @@ pip install -r requirements.txt
 
 ```text
 --extra-index-url https://download.pytorch.org/whl/cu130
-torch==2.11.0
-torchvision>=0.28.0
-transformers==5.14.1
-accelerate>=1.14.0
-qwen-vl-utils>=0.0.14
-gradio==6.22.0
+
+accelerate==1.14.0
+peft==0.20.0
+transformers-stream-generator==0.0.5
+transformers==5.16.1
+qwen-vl-utils==0.0.14
+sentencepiece==0.2.2
+opencv-python==5.0.0.93
+torchvision==0.26.0
+matplotlib==3.10.9
+einops==0.8.2
 spaces==0.51.1
 pillow==12.3.0
-huggingface-hub>=1.27.0
+kernels==0.16.0
+gradio==6.25.0
+torch==2.11.0
+timm==1.0.28
+av==17.1.0
 ```
 
 ### **Usage**
 
-Once the server initializes, open your browser to the local address output in your terminal (typically `http://127.0.0.1:7860/`).
+Once initialized, access the terminal interface at `http://127.0.0.1:7860/` in your browser.
 
-1. **Load Image:**
-* Click **[ Upload ]** or type `upload` in the CLI to select a local image.
-* Click any example file path listed under `EXAMPLES_DIR:`.
-
-2. **Generate Caption:**
-* Click **[ Generate ]** or type `generate` and press Enter.
-* The model will stream the fine-grained visual caption directly into the terminal window.
-
-3. **Copy Output:**
-* Click **[ Copy ]** or type `copy` to copy the generated markdown to your clipboard.
-
-4. **Clear Session:**
-* Click **[ Clear ]** or type `clear` to reset the terminal buffer and start a new session.
+1. **Upload an Image:** Click the **[ Upload ]** button or type `upload` into the terminal prompt to select a local image.
+2. **Run Safety Scan:** The system automatically executes `check_safety` via `ImageShield-MMCF-0.8B`. If flagged as unsafe or NCII, the input is immediately discarded.
+3. **Generate Caption:** Type `generate` or click **[ Generate ]** to stream dense visual captions into the terminal.
+4. **Copy Output:** Use the `copy` command or click **[ Copy ]** to place the generated Markdown text directly onto your clipboard.
 
 ### **License and Source**
 
