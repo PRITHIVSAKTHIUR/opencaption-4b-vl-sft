@@ -16,8 +16,10 @@ from threading import Thread
 import base64
 from io import BytesIO
 from PIL import Image
+import ncii_vision_guard
 
 MODEL_ID = "prithivMLmods/OpenCaption-4B-VL-SFT-v1.0"
+NCII_BLOCK_MESSAGE = "NCII content detected. Request blocked by safety guard."
 
 SYSTEM_PROMPT = """You are a detailed image captioning assistant.
 
@@ -35,10 +37,10 @@ Use precise, sensory, and fluent language throughout. Describe only what is visi
 
 DEFAULT_PROMPT = "Provide a detailed caption for this image with fine-grained visual details."
 
-print("Loading processor...")
+print("Loading main captioning processor...")
 processor = AutoProcessor.from_pretrained(MODEL_ID)
 
-print("Loading model...")
+print("Loading main captioning model...")
 model = Qwen3VLForConditionalGeneration.from_pretrained(
     MODEL_ID,
     torch_dtype=torch.bfloat16,
@@ -107,6 +109,21 @@ CLIENT_CONFIG = {
 app = Server(title="OpenCaption-Terminal")
 
 
+@app.api(name="check_safety")
+@spaces.GPU(duration=30, size="xlarge")
+def check_safety(image_b64: str) -> dict:
+    """Pure GPU safety check. Runs BEFORE the captioning generation."""
+    try:
+        res = ncii_vision_guard.check_image_safety(image_b64, device="cuda")
+        is_nsfw = res.get("nsfw") == 1 or res.get("safe") == 0
+        if is_nsfw:
+            return {"status": "blocked", "message": NCII_BLOCK_MESSAGE}
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"Safety check error: {e}")
+        return {"status": "ok", "warning": "Safety check failed, proceeding."}
+
+
 @app.api(name="generate")
 @spaces.GPU(duration=60, size="xlarge")
 def generate(
@@ -121,6 +138,13 @@ def generate(
     pil_image = b64_to_pil(image_b64)
     if pil_image is None:
         yield "[ERROR] No valid image provided."
+        return
+
+    # Defense-in-depth: Re-check inside the generation worker
+    res = ncii_vision_guard.check_image_safety(image_b64, device="cuda")
+    is_nsfw = res.get("nsfw") == 1 or res.get("safe") == 0
+    if is_nsfw:
+        yield f"[BLOCKED] {NCII_BLOCK_MESSAGE}"
         return
 
     if next(model.parameters()).device.type != "cuda":

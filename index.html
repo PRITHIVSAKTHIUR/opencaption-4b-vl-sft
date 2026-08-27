@@ -210,6 +210,20 @@ body::after {
     content: '└─';
 }
 
+/* Error/Blocked styling */
+.blocked-msg {
+    color: #ff0000;
+    font-weight: 700;
+    text-shadow: 0 0 4px rgba(255, 0, 0, 0.6);
+    animation: error-blink 1.2s steps(2) infinite;
+}
+
+@keyframes error-blink {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
 .term-img {
     display: block;
     border: 1px solid #333;
@@ -385,7 +399,7 @@ body::after {
             </div>
             <div class="output-text">
                 > Available commands:<br>
-                > <strong>upload</strong> &nbsp;&nbsp;&nbsp;&nbsp;Upload a local image file.<br>
+                > <strong>upload</strong> &nbsp;&nbsp;&nbsp;&nbsp;Upload and scan a local image file.<br>
                 > <strong>generate</strong> &nbsp;&nbsp;Generate caption from the loaded image.<br>
                 > <strong>copy</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Copy the last generated caption.<br>
                 > <strong>clear</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Clear the terminal screen.<br>
@@ -413,7 +427,7 @@ body::after {
 
         <div class="terminal-footer">
             <div><span class="status-dot"></span> <span id="status-text">READY</span></div>
-            <div>MODEL: OpenCaption-4B-VL | GPU: ZEROGPU</div>
+            <div>MODEL: OpenCaption-4B-VL | GUARD: ImageShield-MMCF | GPU: ZEROGPU</div>
         </div>
 
     </div>
@@ -506,16 +520,15 @@ async function loadExample(idx) {
     if (!client || isProcessing) return;
     
     printLine(`<span class="prompt">@prithivmlmods:~$</span><span class="command">load ${idx}</span>`);
-    const loadingDiv = printOutput('Fetching asset...');
+    const loadingDiv = printOutput('> Fetching asset...');
     
     try {
         const result = await client.predict('/load_example', { idx: idx });
         const data = result.data[0];
         if (data && data.status === 'ok' && data.image) {
-            currentImageB64 = data.image;
             loadingDiv.innerHTML = `> Image asset loaded successfully: ${data.name}`;
-            printImage(currentImageB64);
-            generateBtn.disabled = false;
+            printImage(data.image);
+            await runSafetyCheck(data.image);
         } else {
             loadingDiv.innerHTML = '> Error: Could not load example.';
         }
@@ -548,7 +561,7 @@ function handleCommand(cmd) {
         case 'help':
             printOutput(`
                 > Available commands:<br>
-                > <strong>upload</strong> &nbsp;&nbsp;&nbsp;&nbsp;Upload a local image file.<br>
+                > <strong>upload</strong> &nbsp;&nbsp;&nbsp;&nbsp;Upload and scan a local image file.<br>
                 > <strong>generate</strong> &nbsp;&nbsp;Generate caption from the loaded image.<br>
                 > <strong>copy</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Copy the last generated caption.<br>
                 > <strong>clear</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Clear the terminal screen.<br>
@@ -580,16 +593,59 @@ fileInput.addEventListener('change', (e) => {
     if (!file) return;
     
     const reader = new FileReader();
-    reader.onload = (ev) => {
-        currentImageB64 = ev.target.result;
+    reader.onload = async (ev) => {
+        const b64 = ev.target.result;
         printLine(`<span class="prompt">@prithivmlmods:~$</span><span class="command">upload</span>`);
         printOutput(`> Image loaded: ${file.name}`);
-        printImage(currentImageB64);
-        generateBtn.disabled = false;
+        printImage(b64);
+        await runSafetyCheck(b64);
     };
     reader.readAsDataURL(file);
     e.target.value = ''; 
 });
+
+/* ── Safety Check Logic (NCII) ── */
+async function runSafetyCheck(b64) {
+    if (!client) return;
+    
+    isProcessing = true;
+    generateBtn.disabled = true;
+    uploadBtn.disabled = true;
+    setStatus('SCANNING');
+
+    printLine(`<span class="prompt">@prithivmlmods:~$</span><span class="command">check_safety</span>`);
+    const scanDiv = printOutput('> Scanning image for NCII content...');
+
+    try {
+        const result = await client.predict('/check_safety', { image_b64: b64 });
+        const data = result.data && result.data[0];
+        
+        if (data && data.status === 'blocked') {
+            // Using bright red color for blocked message
+            scanDiv.innerHTML = `> <span class="blocked-msg">[BLOCKED] ${data.message}</span>`;
+            currentImageB64 = null; // Discard the image so it can't be generated
+            generateBtn.disabled = true;
+            setStatus('BLOCKED');
+        } else if (data && data.status === 'ok') {
+            scanDiv.innerHTML = '> <span style="color:#fff;">[SAFE]</span> Image verified safe for generation.';
+            currentImageB64 = b64;  // Lock in the safe image
+            generateBtn.disabled = false;
+            setStatus('READY');
+        } else {
+            scanDiv.innerHTML = `> Warning: ${data.warning || 'Unknown safety status'}`;
+            currentImageB64 = b64;
+            generateBtn.disabled = false;
+            setStatus('READY');
+        }
+    } catch (e) {
+        scanDiv.innerHTML = `> <span class="blocked-msg">[ERROR] Safety check failed: ${e.message}</span>`;
+        setStatus('ERROR');
+    } finally {
+        isProcessing = false;
+        uploadBtn.disabled = false;
+        cliInput.focus();
+    }
+}
 
 /* ── Generate Logic ── */
 async function runGenerate() {
@@ -631,6 +687,13 @@ async function runGenerate() {
             }
         }
         
+        // If defense-in-depth blocks it on backend
+        if (buffer.includes("[BLOCKED]")) {
+             streamDiv.innerHTML = `<span class="blocked-msg">${buffer}</span>`;
+             setStatus('BLOCKED');
+             return;
+        }
+        
         // Remove cursor on finish, save text, enable copy
         streamDiv.innerHTML = marked.parse(buffer);
         lastGeneratedText = buffer;
@@ -638,7 +701,7 @@ async function runGenerate() {
         printLine(`<span style="color:#666;">[PROCESS COMPLETED]</span>`);
         
     } catch (e) {
-        streamDiv.innerHTML = marked.parse(buffer) + `<br><br><span style="color:#fff;">[ERROR] ${e.message}</span>`;
+        streamDiv.innerHTML = marked.parse(buffer) + `<br><br><span class="blocked-msg">[ERROR] ${e.message}</span>`;
     } finally {
         isProcessing = false;
         generateBtn.disabled = false;
@@ -668,7 +731,7 @@ function copyCaption() {
 
     }).catch(err => {
         printLine(`<span class="prompt">@prithivmlmods:~$</span><span class="command">copy</span>`);
-        printOutput(`> <span style="color:#fff;">[ERROR] Failed to copy: ${err}</span>`);
+        printOutput(`> <span class="blocked-msg">[ERROR] Failed to copy: ${err}</span>`);
     });
 }
 
@@ -683,7 +746,7 @@ function clearTerminal() {
         </div>
         <div class="output-text">
             > Available commands:<br>
-            > <strong>upload</strong> &nbsp;&nbsp;&nbsp;&nbsp;Upload a local image file.<br>
+            > <strong>upload</strong> &nbsp;&nbsp;&nbsp;&nbsp;Upload and scan a local image file.<br>
             > <strong>generate</strong> &nbsp;&nbsp;Generate caption from the loaded image.<br>
             > <strong>copy</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Copy the last generated caption.<br>
             > <strong>clear</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Clear the terminal screen.<br>
